@@ -7,27 +7,80 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
+import subprocess
 from datetime import datetime
 from typing import Dict, List, Optional, Set, Tuple
 
 # Default locations. The primary report path requires root to read; a home
 # directory copy is used as a fallback for local development without sudo.
+# Both can be overridden via environment variables:
+#   LYNIS_REPORT_PATH          - exact report.dat file to read
+#   LYNIS_CUSTOM_PROFILE_PATH  - exact custom.prf file to read/write
 DEFAULT_REPORT_PATHS = [
     "/var/log/lynis-report.dat",
     os.path.expanduser("~/lynis-report.dat"),
 ]
-CUSTOM_PROFILE_PATH = "/etc/lynis/custom.prf"
+REPORT_PATH_ENV_VAR = "LYNIS_REPORT_PATH"
+CUSTOM_PROFILE_PATH_ENV_VAR = "LYNIS_CUSTOM_PROFILE_PATH"
+CUSTOM_PROFILE_PATH = os.environ.get(CUSTOM_PROFILE_PATH_ENV_VAR) or "/etc/lynis/custom.prf"
 
 _LINE_RE = re.compile(r"^(?P<key>[A-Za-z_]+)(\[\])?=(?P<value>.*)$")
 _SKIP_TEST_RE = re.compile(r"^\s*skip-test\s*=\s*([A-Za-z0-9\-]+)(:.*)?\s*$")
 
 
 def find_report_path(candidates: Optional[List[str]] = None) -> Optional[str]:
-    """Return the first readable report path from the candidate list."""
+    """
+    Return the first readable report path from the candidate list.
+
+    If the LYNIS_REPORT_PATH environment variable is set, it takes priority
+    and is used exclusively (no fallback to the default candidates), so a
+    misconfigured explicit override fails clearly instead of silently
+    falling back to a different file.
+    """
+    override = os.environ.get(REPORT_PATH_ENV_VAR)
+    if override:
+        override = os.path.expanduser(override)
+        if os.path.isfile(override) and os.access(override, os.R_OK):
+            return override
+        return None
+
     for path in candidates or DEFAULT_REPORT_PATHS:
         if os.path.isfile(path) and os.access(path, os.R_OK):
             return path
     return None
+
+
+def get_installed_lynis_info() -> Dict[str, Optional[object]]:
+    """
+    Check whether the `lynis` binary is installed and, if so, try to
+    determine its version by running `lynis --version`. Never raises --
+    any failure just results in a version of None.
+
+    Returns: {"installed": bool, "version": str|None, "path": str|None}
+    """
+    binary_path = shutil.which("lynis")
+    if not binary_path:
+        return {"installed": False, "version": None, "path": None}
+
+    version = None
+    try:
+        result = subprocess.run(
+            [binary_path, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        output = (result.stdout or result.stderr or "").strip()
+        if output:
+            # `lynis --version` normally prints just the version number, but
+            # be defensive in case of extra banner/warning lines.
+            version = output.splitlines()[-1].strip()
+    except Exception:
+        pass
+
+    return {"installed": True, "version": version, "path": binary_path}
 
 
 def parse_report(path: str) -> Dict:
@@ -198,10 +251,17 @@ def build_findings_list(
     """
     path = report_path or find_report_path()
     if not path:
+        override = os.environ.get(REPORT_PATH_ENV_VAR)
+        if override:
+            raise FileNotFoundError(
+                f"{REPORT_PATH_ENV_VAR} is set to '{override}' but that file is "
+                "missing or unreadable."
+            )
         raise FileNotFoundError(
             "No readable Lynis report found. Checked: "
             + ", ".join(DEFAULT_REPORT_PATHS)
-            + ". Run this app with sudo (./run.sh) so it can read /var/log/lynis-report.dat."
+            + ". Run this app with sudo (./run.sh) so it can read /var/log/lynis-report.dat, "
+            + f"or set {REPORT_PATH_ENV_VAR} to point at a specific report file."
         )
 
     parsed = parse_report(path)

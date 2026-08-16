@@ -29,6 +29,28 @@ function showAlert(message, variant = "danger") {
   area.appendChild(wrapper);
 }
 
+async function fetchSystemInfo() {
+  const elMetric = el("metric-lynis-installed");
+  try {
+    const res = await fetch("/api/system-info");
+    const data = await res.json();
+    if (data.installed) {
+      elMetric.textContent = data.version || "Yes";
+      elMetric.classList.remove("text-danger");
+      elMetric.classList.add("text-success");
+      elMetric.title = data.path ? `Found at ${data.path}` : "";
+    } else {
+      elMetric.textContent = "N/A";
+      elMetric.classList.remove("text-success");
+      elMetric.classList.add("text-danger");
+      elMetric.title = "lynis was not found on PATH";
+    }
+  } catch (err) {
+    elMetric.textContent = "?";
+    elMetric.title = `Could not check: ${err}`;
+  }
+}
+
 function updateMetrics() {
   const meta = state.meta || {};
   el("metric-hardening").textContent = meta.hardening_index ? `${meta.hardening_index}/100` : "–";
@@ -212,6 +234,11 @@ el("chk-select-all").addEventListener("change", (e) => {
 });
 
 el("btn-exempt").addEventListener("click", exemptSelected);
-el("btn-refresh").addEventListener("click", fetchFindings);
+el("btn-refresh").addEventListener("click", () => {
+  fetchFindings();
+  fetchSystemInfo();
+});
 
+fetchSystemInfo();
 fetchFindings();
+

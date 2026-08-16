@@ -54,6 +54,11 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/api/system-info")
+def api_system_info():
+    return jsonify(lrp.get_installed_lynis_info())
+
+
 @app.route("/api/findings")
 def api_findings():
     knowledge = load_knowledge()
@@ -93,7 +98,7 @@ def api_exempt():
         return jsonify(
             {
                 "error": (
-                    "Permission denied writing /etc/lynis/custom.prf. "
+                    f"Permission denied writing {lrp.CUSTOM_PROFILE_PATH}. "
                     "Run this app with sudo (./run.sh)."
                 )
             }
@@ -126,7 +131,7 @@ def api_unexempt():
         return jsonify(
             {
                 "error": (
-                    "Permission denied writing /etc/lynis/custom.prf. "
+                    f"Permission denied writing {lrp.CUSTOM_PROFILE_PATH}. "
                     "Run this app with sudo (./run.sh)."
                 )
             }

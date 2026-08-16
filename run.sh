@@ -40,5 +40,21 @@ wait_for_server_then_open() {
 
 wait_for_server_then_open &
 
+# Forward optional path overrides through sudo (which strips the environment
+# by default). Set these before running ./run.sh to point at a different
+# report.dat / custom.prf, e.g.:
+#   LYNIS_REPORT_PATH=/path/to/lynis-report.dat ./run.sh
+PRESERVE_ENV=""
+if [ -n "${LYNIS_REPORT_PATH:-}" ]; then
+  PRESERVE_ENV="LYNIS_REPORT_PATH"
+fi
+if [ -n "${LYNIS_CUSTOM_PROFILE_PATH:-}" ]; then
+  PRESERVE_ENV="${PRESERVE_ENV:+$PRESERVE_ENV,}LYNIS_CUSTOM_PROFILE_PATH"
+fi
+
 echo "Starting Lynis Findings Dashboard at $URL (Ctrl+C to stop)..."
-sudo python3 "$SCRIPT_DIR/app.py"
+if [ -n "$PRESERVE_ENV" ]; then
+  sudo --preserve-env="$PRESERVE_ENV" python3 "$SCRIPT_DIR/app.py"
+else
+  sudo python3 "$SCRIPT_DIR/app.py"
+fi

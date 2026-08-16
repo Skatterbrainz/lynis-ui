@@ -50,6 +50,47 @@ The app needs root privileges for two things:
 `run.sh` runs the Flask server with `sudo`. The server binds only to
 `localhost` and is never exposed to the network.
 
+## Configuration (environment variables)
+
+By default the app looks for the Lynis report at `/var/log/lynis-report.dat`
+(falling back to `~/lynis-report.dat` for local development without sudo),
+and reads/writes exemptions at `/etc/lynis/custom.prf`. Both can be
+overridden with environment variables if your Lynis reports or custom
+profile live somewhere else (e.g. a non-standard install, a container, or a
+report copied in from another host):
+
+| Variable | Overrides | Default |
+|---|---|---|
+| `LYNIS_REPORT_PATH` | The exact `report.dat` file to read | `/var/log/lynis-report.dat`, then `~/lynis-report.dat` |
+| `LYNIS_CUSTOM_PROFILE_PATH` | The exact `custom.prf` file to read/write exemptions in | `/etc/lynis/custom.prf` |
+
+**Behavior notes:**
+- `LYNIS_REPORT_PATH` is exclusive when set — the app uses only that path and
+  does *not* fall back to the two defaults. If the file doesn't exist or
+  isn't readable, you'll get a clear error naming the variable and the path
+  you set, rather than a generic "no report found" message.
+- `LYNIS_CUSTOM_PROFILE_PATH` simply replaces the default path everywhere
+  (reading existing exemptions, appending new ones, and un-exempting).
+- Both are read once at process start (they're resolved when
+  `lynis_report_parser.py` is imported / at request time via
+  `os.environ`), so set them *before* launching the app.
+
+**Running from source** (`run.sh` forwards them through `sudo` automatically):
+```bash
+LYNIS_REPORT_PATH=/path/to/lynis-report.dat \
+LYNIS_CUSTOM_PROFILE_PATH=/path/to/custom.prf \
+./run.sh
+```
+
+**Running the AppImage:** `AppRun` elevates the backend via `pkexec`, and
+`pkexec` strips almost all environment variables for security — so these
+overrides are *not* currently forwarded through the AppImage's normal
+`pkexec` path. If you need an override with the AppImage, use the documented
+`sudo` fallback instead, which does inherit your shell's environment:
+```bash
+sudo LYNIS_REPORT_PATH=/path/to/lynis-report.dat ./dist/Lynis-Findings-Dashboard-x86_64.AppImage
+```
+
 ## How it works
 
 1. On page load, the backend parses `/var/log/lynis-report.dat` for
@@ -75,7 +116,7 @@ The app needs root privileges for two things:
 
 | File | Purpose |
 |---|---|
-| `app.py` | Flask routes: serves the page, `/api/findings`, `/api/exempt`, `/api/unexempt` |
+| `app.py` | Flask routes: serves the page, `/api/findings`, `/api/exempt`, `/api/unexempt`, `/api/system-info` |
 | `lynis_report_parser.py` | Parsing logic for report.dat and custom.prf (no Flask dependency) |
 | `lynis_knowledge.json` | Curated category/severity/impact/remediation/explanation per test ID |
 | `templates/index.html` | Bootstrap 5 (via CDN) page shell |
