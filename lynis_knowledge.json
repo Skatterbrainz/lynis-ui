@@ -1,0 +1,226 @@
+{
+  "AUTH-9262": {
+    "category": "Authentication",
+    "severity": "Medium",
+    "impact": "Usability — stricter complexity rules",
+    "remediation": "sudo apt install libpam-pwquality  # then add 'minlen=12 ucredit=-1 lcredit=-1 dcredit=-1' to /etc/pam.d/common-password",
+    "explanation": "Prevents users from choosing weak, easily-guessable passwords, reducing the risk of brute-force or credential-stuffing compromise."
+  },
+  "AUTH-9286": {
+    "category": "Authentication",
+    "severity": "Medium",
+    "impact": "Usability — forced periodic rotation",
+    "remediation": "sudo sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS   90/;s/^PASS_MIN_DAYS.*/PASS_MIN_DAYS   7/' /etc/login.defs",
+    "explanation": "Limits how long a compromised password stays valid and encourages regular rotation, reducing long-term credential exposure."
+  },
+  "AUTH-9328": {
+    "category": "Authentication",
+    "severity": "Low",
+    "impact": "None",
+    "remediation": "sudo sed -i 's/^UMASK.*/UMASK           027/' /etc/login.defs",
+    "explanation": "A stricter umask prevents newly created files from being readable/writable by other local users by default, reducing accidental data exposure."
+  },
+  "AUTH-9228": {
+    "category": "Authentication",
+    "severity": "Low (informational)",
+    "impact": "None",
+    "remediation": "sudo pwck",
+    "explanation": "Detects inconsistencies or corruption in the password database that could indicate tampering or misconfiguration."
+  },
+  "AUTH-9230": {
+    "category": "Authentication",
+    "severity": "Low",
+    "impact": "None",
+    "remediation": "Configure password hashing rounds (e.g. SHA_CRYPT_MIN_ROUNDS / SHA_CRYPT_MAX_ROUNDS) in /etc/login.defs",
+    "explanation": "Increases the computational cost of cracking stolen password hashes."
+  },
+  "ACCT-9628": {
+    "category": "Auditing",
+    "severity": "Medium",
+    "impact": "Performance — minor CPU/disk overhead",
+    "remediation": "sudo apt install auditd audispd-plugins && sudo systemctl enable --now auditd",
+    "explanation": "Provides detailed audit trails of security-relevant system calls and events, which is critical for detecting and investigating intrusions."
+  },
+  "ACCT-9622": {
+    "category": "Auditing",
+    "severity": "Low",
+    "impact": "Performance — negligible overhead",
+    "remediation": "sudo apt install acct && sudo systemctl enable --now acct 2>/dev/null || sudo touch /var/log/wtmp",
+    "explanation": "Enables historical tracking of user logins/commands, useful for forensic analysis after an incident."
+  },
+  "ACCT-9626": {
+    "category": "Auditing",
+    "severity": "Low",
+    "impact": "Performance — negligible overhead",
+    "remediation": "sudo apt install sysstat && sudo systemctl enable --now sysstat",
+    "explanation": "Collects historical system resource usage, useful for spotting anomalies and forensic analysis after an incident."
+  },
+  "HRDN-7230": {
+    "category": "Malware/Integrity",
+    "severity": "Medium-High",
+    "impact": "Performance — CPU/I/O during scans",
+    "remediation": "sudo apt install rkhunter chkrootkit clamav && sudo rkhunter --update && sudo rkhunter --propupd",
+    "explanation": "Detects rootkits, trojans, and other malicious software that could otherwise go unnoticed on the system."
+  },
+  "FINT-4350": {
+    "category": "Malware/Integrity",
+    "severity": "Medium",
+    "impact": "Performance — periodic hash-check overhead",
+    "remediation": "sudo apt install aide && sudo aideinit",
+    "explanation": "Alerts you when critical system files are modified unexpectedly, which is often a sign of compromise."
+  },
+  "KRNL-6000": {
+    "category": "Kernel/Network",
+    "severity": "Medium",
+    "impact": "Usability — disables sysrq/dmesg debug conveniences",
+    "remediation": "Create /etc/sysctl.d/99-hardening.conf with keys such as kernel.kptr_restrict=2, kernel.dmesg_restrict=1, fs.suid_dumpable=0, net.ipv4.conf.all.rp_filter=1, then run: sudo sysctl --system",
+    "explanation": "These kernel-level settings shrink the attack surface for kernel-pointer leaks, kernel exploits, and network spoofing/redirect attacks."
+  },
+  "KRNL-5820": {
+    "category": "Kernel/Network",
+    "severity": "Low",
+    "impact": "None",
+    "remediation": "Add 'hard core 0' and 'soft core 0' to /etc/security/limits.conf",
+    "explanation": "Disables core dumps, preventing sensitive memory contents from being written to disk after a crash."
+  },
+  "BOOT-5122": {
+    "category": "Boot",
+    "severity": "Medium-High",
+    "impact": "Usability — adds password prompt for boot edits",
+    "remediation": "grub-mkpasswd-pbkdf2  # copy hash, then add set superusers=\"admin\" and password_pbkdf2 admin <hash> to /etc/grub.d/40_custom, then: sudo update-grub",
+    "explanation": "Prevents anyone with physical/console access from altering boot parameters or booting into single-user/root mode without authentication."
+  },
+  "BOOT-5264": {
+    "category": "Boot",
+    "severity": "Low",
+    "impact": "None",
+    "remediation": "Run: systemd-analyze security SERVICE  for each running service and tighten sandboxing directives",
+    "explanation": "Identifies systemd services that could be further sandboxed to limit their capabilities if compromised."
+  },
+  "BANN-7126": {
+    "category": "Boot",
+    "severity": "Low",
+    "impact": "None",
+    "remediation": "printf 'Authorized users only. All activity may be monitored.\\n' | sudo tee /etc/issue",
+    "explanation": "Establishes a documented legal basis for prosecuting unauthorized access and clarifies that activity may be monitored."
+  },
+  "BANN-7130": {
+    "category": "Boot",
+    "severity": "Low",
+    "impact": "None",
+    "remediation": "printf 'Authorized users only. All activity may be monitored.\\n' | sudo tee /etc/issue.net",
+    "explanation": "Establishes a documented legal basis for prosecuting unauthorized network access and clarifies that activity may be monitored."
+  },
+  "USB-1000": {
+    "category": "Boot",
+    "severity": "Low",
+    "impact": "Usability — breaks USB drive/peripheral support",
+    "remediation": "echo \"install usb-storage /bin/true\" | sudo tee /etc/modprobe.d/disable-usb-storage.conf",
+    "explanation": "Reduces the risk of data exfiltration or malware introduction via removable USB storage devices."
+  },
+  "LOGG-2154": {
+    "category": "Logging",
+    "severity": "Low-Medium",
+    "impact": "None locally — needs external log server",
+    "remediation": "echo '*.* @@your-log-server:514' | sudo tee /etc/rsyslog.d/90-remote.conf && sudo systemctl restart rsyslog",
+    "explanation": "Protects log integrity by storing copies off-host, so an attacker who compromises the system can't erase evidence of their activity."
+  },
+  "LOGG-2190": {
+    "category": "Filesystem",
+    "severity": "Informational",
+    "impact": "None",
+    "remediation": "sudo lsof +L1   # identify processes; then restart the owning app/process (e.g. killall brave) or reboot",
+    "explanation": "Reclaims disk space held by processes still referencing deleted files; mostly a housekeeping item rather than a security concern."
+  },
+  "PKGS-7370": {
+    "category": "Packages",
+    "severity": "Medium",
+    "impact": "None",
+    "remediation": "sudo apt install debsums && sudo debsums -c",
+    "explanation": "Verifies installed package files against known-good checksums, helping detect tampering."
+  },
+  "PKGS-7394": {
+    "category": "Packages",
+    "severity": "Medium",
+    "impact": "None",
+    "remediation": "sudo apt install apt-show-versions",
+    "explanation": "Helps track which installed packages have newer versions available, supporting patch management."
+  },
+  "PKGS-7398": {
+    "category": "Packages",
+    "severity": "Medium",
+    "impact": "None",
+    "remediation": "sudo apt install debsums apt-show-versions",
+    "explanation": "Helps you proactively identify installed packages with known, unpatched vulnerabilities (CVEs)."
+  },
+  "PKGS-7420": {
+    "category": "Packages",
+    "severity": "Medium",
+    "impact": "Usability — auto-updates can disrupt running services",
+    "remediation": "sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades",
+    "explanation": "Ensures security patches are applied promptly without relying on manual intervention, reducing the window of exposure to known exploits."
+  },
+  "HRDN-7222": {
+    "category": "Compilers",
+    "severity": "Low-Medium",
+    "impact": "Usability — breaks compiling for non-root/dev users",
+    "remediation": "sudo chmod 750 /usr/bin/gcc /usr/bin/x86_64-linux-gnu-gcc-13 /usr/bin/x86_64-linux-gnu-as && sudo chgrp devs /usr/bin/gcc  # add trusted users to 'devs' group",
+    "explanation": "Makes it harder for an attacker or malware with limited/non-root access to compile and run custom exploit code on the system."
+  },
+  "FILE-6310": {
+    "category": "Filesystem",
+    "severity": "Low",
+    "impact": "None day-to-day",
+    "remediation": "No simple CLI fix — requires repartitioning/reinstall (e.g. via LVM resize or fresh install with separate mount points)",
+    "explanation": "Separate partitions contain the impact of a filled disk, runaway logs, or a compromised service, preventing it from crashing the whole system."
+  },
+  "FILE-7524": {
+    "category": "Filesystem",
+    "severity": "Low",
+    "impact": "None",
+    "remediation": "Review file permissions flagged in the Lynis log and tighten with chmod as appropriate",
+    "explanation": "Overly permissive file permissions can allow unauthorized local users to read or modify sensitive files."
+  },
+  "PROC-3612": {
+    "category": "Processes",
+    "severity": "Low (informational)",
+    "impact": "None",
+    "remediation": "ps aux | grep -i defunct   # investigate and, if needed, restart the parent process",
+    "explanation": "Zombie/dead processes can indicate a misbehaving parent process and, in rare cases, resource exhaustion."
+  },
+  "NAME-4028": {
+    "category": "Networking",
+    "severity": "Low",
+    "impact": "None",
+    "remediation": "Review /etc/resolv.conf and DNS search domain configuration",
+    "explanation": "Ensures DNS resolution is configured as expected and not silently misconfigured or hijacked."
+  },
+  "NETW-3200": {
+    "category": "Networking",
+    "severity": "Low",
+    "impact": "None",
+    "remediation": "echo 'install dccp /bin/true' | sudo tee -a /etc/modprobe.d/disable-uncommon-protocols.conf  # repeat for sctp, rds, tipc as needed",
+    "explanation": "Uncommon network protocols increase kernel attack surface if they're loaded but never actually used."
+  },
+  "PRNT-2307": {
+    "category": "Printing",
+    "severity": "Low",
+    "impact": "Usability — may restrict local CUPS admin access",
+    "remediation": "Review /etc/cups/cupsd.conf access controls for the admin/config endpoints",
+    "explanation": "Restricting CUPS configuration access reduces the risk of unauthorized printer/service reconfiguration."
+  },
+  "MACF-6208": {
+    "category": "Mandatory Access Control",
+    "severity": "Low",
+    "impact": "None",
+    "remediation": "sudo aa-status",
+    "explanation": "Confirms AppArmor profiles are loaded and enforcing, which contains what a compromised process can do."
+  },
+  "TOOL-5002": {
+    "category": "Tooling",
+    "severity": "Low (informational)",
+    "impact": "None",
+    "remediation": "Consider installing a configuration management tool (e.g. Ansible) if managing multiple systems",
+    "explanation": "Automation tooling improves consistency and auditability of system configuration changes over time."
+  }
+}

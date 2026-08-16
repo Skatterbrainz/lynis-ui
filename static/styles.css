@@ -1,0 +1,39 @@
+body {
+  background-color: #f5f6f8;
+}
+
+.sticky-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #ffffff;
+  border: 1px solid #dee2e6;
+}
+
+table code {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8rem;
+}
+
+.row-exempted {
+  opacity: 0.65;
+}
+
+#summary-card .fs-4 {
+  color: #212529;
+}
+
+/* Give the table its own scrolling region so the sticky header only has to
+   stick relative to this container, not the whole page — avoids fragile
+   pixel-offset math against the separately-sticky toolbar above it. */
+.table-responsive {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+thead.table-dark th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}

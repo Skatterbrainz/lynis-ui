@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Lynis Findings Dashboard
+Comment=Review Lynis scan findings and manage accepted-risk exemptions
+Exec=AppRun
+Icon=lynis-webui
+Categories=System;Security;
+Terminal=false

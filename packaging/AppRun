@@ -1,0 +1,66 @@
+#!/bin/bash
+# AppImage entry point for the Lynis Findings Dashboard.
+#
+# The backend needs root to read /var/log/lynis-report.dat and write
+# /etc/lynis/custom.prf, so it is launched via pkexec (a graphical
+# PolicyKit password prompt) rather than requiring a terminal + sudo.
+#
+# The browser is opened as the invoking (non-root) user, never as root.
+
+set -u
+
+HERE="$(dirname "$(readlink -f "${0}")")"
+BACKEND_SRC="$HERE/usr/bin/lynis-webui-backend"
+URL="http://localhost:5000"
+
+# pkexec runs as root, but the AppImage's FUSE mount is only accessible to
+# the user who mounted it -- root gets "Permission denied" trying to reach
+# files inside it. Copy the backend to a real (non-FUSE) temp file first so
+# the elevated process can actually read and execute it.
+RUNTIME_COPY="$(mktemp /tmp/lynis-webui-backend.XXXXXX)"
+cleanup() { rm -f "$RUNTIME_COPY"; }
+trap cleanup EXIT
+cp "$BACKEND_SRC" "$RUNTIME_COPY"
+chmod 755 "$RUNTIME_COPY"
+BACKEND="$RUNTIME_COPY"
+
+wait_for_server() {
+  local attempt
+  for attempt in $(seq 1 75); do
+    if (exec 3<>"/dev/tcp/localhost/5000") 2>/dev/null; then
+      exec 3>&- 3<&- 2>/dev/null || true
+      return 0
+    fi
+    sleep 0.2
+  done
+  return 1
+}
+
+open_browser() {
+  if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$URL" >/dev/null 2>&1 || true
+  fi
+}
+
+if [ "$(id -u)" -eq 0 ]; then
+  # Already running as root (e.g. the whole AppImage was launched via sudo).
+  exec "$BACKEND"
+fi
+
+if ! command -v pkexec >/dev/null 2>&1; then
+  echo "pkexec not found. Install polkit, or run this AppImage manually with sudo:" >&2
+  echo "  sudo \"$0\"" >&2
+  exit 1
+fi
+
+pkexec "$BACKEND" &
+BACKEND_PID=$!
+
+if wait_for_server; then
+  open_browser
+else
+  echo "Backend did not become ready in time. Check for a pkexec authentication" >&2
+  echo "prompt, or try running manually: sudo \"$BACKEND\"" >&2
+fi
+
+wait "$BACKEND_PID"
