@@ -7,6 +7,13 @@ table. Check the boxes next to findings you've decided to accept as risk,
 click **Exempt Selected**, and it appends the matching `skip-test=` lines to
 `/etc/lynis/custom.prf` so those tests are excluded from future scans.
 
+This project was built and tested on Linux Mint 22.3 with lynis 3.1.7.
+
+## Requirements
+
+- Linux (tested only on Linux Mint)
+- Python 3 + flask (appimage will install it also)
+
 ## Usage
 
 ### Option A: run from source (development)
