@@ -17,6 +17,8 @@ This project was built and tested on Linux Mint 22.3 with lynis 3.1.7. Last upda
 
 - Linux (tested only on Linux Mint)
 - Python 3 + flask (appimage will install it also)
+- lynis 3.1.7 or newer
+- At least one lynis system audit completed (recently is preferred)
 
 ## Usage
 
