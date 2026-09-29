@@ -6,7 +6,7 @@ A small local web app that shows your Lynis controls in a browser table with mul
 
 lynis-ui is NOT intended to be a replacement for [Lynis Enterprise](https://cisofy.com/lynis-enterprise/), nor should it be (refer to [Current Limitations](#current-limitations) below). It is intended for lightweight usage in non-critical environments, like personal labs, home networks, and only for quick review of security baselines and remediation. If you are looking for deeper control and more flexible capabilities, consider [Lynis Enterprise](https://cisofy.com/lynis-enterprise/).
 
-This project was built and tested on Linux Mint 22.3 with lynis 3.1.7.
+This project was built and tested on Linux Mint 22.3 with lynis 3.1.7. Last update 2026-09-28.
 
 ## What's New
 
