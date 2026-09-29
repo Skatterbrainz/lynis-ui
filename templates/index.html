@@ -50,6 +50,13 @@
 
     <div class="d-flex flex-wrap align-items-center gap-2 mb-3 sticky-toolbar p-2 rounded shadow-sm">
       <button class="btn btn-outline-secondary btn-sm" id="btn-refresh">⟳ Refresh</button>
+      <label for="view-filter" class="small text-muted mb-0 ms-2">View</label>
+      <select id="view-filter" class="form-select form-select-sm" style="width: 200px;">
+        <option value="unresolved" selected>Unresolved (default)</option>
+        <option value="remediated">Remediated</option>
+        <option value="exempted">Exempt controls</option>
+        <option value="all">All controls</option>
+      </select>
       <div class="form-check ms-2">
         <input class="form-check-input" type="checkbox" id="chk-select-all">
         <label class="form-check-label" for="chk-select-all">Select all visible</label>
@@ -61,7 +68,7 @@
         style="max-width: 360px;"
         placeholder="Reason for accepting risk (optional)">
       <button class="btn btn-warning btn-sm fw-semibold" id="btn-exempt" disabled>
-        Exempt Selected (<span id="selected-count">0</span>)
+        <span id="action-label">Exempt Selected</span> (<span id="selected-count">0</span>)
       </button>
     </div>
 

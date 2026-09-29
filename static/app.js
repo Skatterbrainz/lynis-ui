@@ -1,9 +1,13 @@
 // Lynis Findings Dashboard - frontend logic
 
 const state = {
+  controls: [],
   findings: [],
   meta: {},
+  view: "unresolved",
 };
+
+const LYNIS_CONTROL_BASE_URL = "https://cisofy.com/lynis/controls/";
 
 const el = (id) => document.getElementById(id);
 
@@ -18,6 +22,12 @@ function severityBadgeClass(severity) {
 
 function kindBadgeClass(kind) {
   return kind === "warning" ? "bg-danger" : "bg-primary";
+}
+
+function buildLynisControlUrl(testId) {
+  const cleanId = (testId || "").trim();
+  if (!cleanId) return null;
+  return `${LYNIS_CONTROL_BASE_URL}${encodeURIComponent(cleanId)}/`;
 }
 
 function showAlert(message, variant = "danger") {
@@ -70,26 +80,76 @@ function updateMetrics() {
   scanMeta.textContent = parts.join(" · ");
 }
 
+function getVisibleControls() {
+  if (state.view === "remediated") {
+    return state.controls.filter((c) => c.control_status === "remediated");
+  }
+  if (state.view === "exempted") {
+    return state.controls.filter((c) => c.exempted);
+  }
+  if (state.view === "all") {
+    return state.controls;
+  }
+  return state.controls.filter((c) => c.control_status === "unresolved");
+}
+
+function isEnableMode() {
+  return state.view === "exempted";
+}
+
+function updateActionModeUI() {
+  const actionLabel = el("action-label");
+  const button = el("btn-exempt");
+  const reasonInput = el("reason-input");
+
+  if (isEnableMode()) {
+    actionLabel.textContent = "Enable Selected";
+    button.classList.remove("btn-warning");
+    button.classList.add("btn-success");
+    reasonInput.disabled = true;
+    reasonInput.placeholder = "Reason not required when enabling controls";
+  } else {
+    actionLabel.textContent = "Exempt Selected";
+    button.classList.remove("btn-success");
+    button.classList.add("btn-warning");
+    reasonInput.disabled = false;
+    reasonInput.placeholder = "Reason for accepting risk (optional)";
+  }
+}
+
 function renderTable() {
   const tbody = el("findings-body");
   tbody.innerHTML = "";
+  const visibleControls = getVisibleControls();
 
-  if (state.findings.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No findings parsed from the report.</td></tr>`;
+  if (visibleControls.length === 0) {
+    const emptyMessage = state.view === "unresolved"
+      ? "No unresolved findings parsed from the report."
+      : (state.view === "remediated"
+          ? "No remediated controls found in the current catalog."
+          : (state.view === "exempted"
+              ? "No exempted controls found."
+              : "No controls available."));
+    tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">${emptyMessage}</td></tr>`;
     return;
   }
 
-  for (const finding of state.findings) {
+  for (const finding of visibleControls) {
     const tr = document.createElement("tr");
     if (finding.exempted) {
       tr.classList.add("table-secondary", "row-exempted");
     }
+    const testUrl = buildLynisControlUrl(finding.test_id);
 
     const description = finding.descriptions && finding.descriptions.length
       ? finding.descriptions.join("; ")
       : "(no description available)";
 
-    const statusHtml = finding.exempted
+    const statusHtml = finding.control_status === "remediated"
+      ? `<span class="badge bg-success">remediated</span>`
+      : (finding.control_status === "exempted"
+          ? `<span class="badge bg-secondary" title="Exempted in custom.prf; this control may not be assessed during scans.">exempted</span>`
+          : finding.exempted
       ? `
         <div class="form-check form-switch mb-0">
           <input class="form-check-input unexempt-toggle" type="checkbox" role="switch"
@@ -98,14 +158,22 @@ function renderTable() {
         </div>`
       : (finding.partial_exemptions && finding.partial_exemptions.length
           ? `<span class="badge bg-info text-dark" title="${finding.partial_exemptions.join(', ')}">Partial exemption</span>`
-          : `<span class="badge ${kindBadgeClass(finding.kind)}">${finding.kind}</span>`);
+          : `<span class="badge ${kindBadgeClass(finding.kind)}">${finding.kind}</span>`));
+
+    const canSelectForExemption = isEnableMode()
+      ? finding.exempted
+      : (finding.control_status === "unresolved" && !finding.exempted);
 
     tr.innerHTML = `
       <td>
         <input type="checkbox" class="form-check-input row-check" data-test-id="${finding.test_id}"
-          ${finding.exempted ? "disabled" : ""}>
+          ${canSelectForExemption ? "" : "disabled"}>
       </td>
-      <td><code>${finding.test_id}</code></td>
+      <td>
+        ${testUrl
+          ? `<a href="${testUrl}" target="_blank" rel="noopener noreferrer" title="Open ${finding.test_id} at cisofy.com"><code>${finding.test_id}</code></a>`
+          : `<code>${finding.test_id}</code>`}
+      </td>
       <td>${finding.category}</td>
       <td>${description}</td>
       <td><span class="badge ${severityBadgeClass(finding.severity)}">${finding.severity}</span></td>
@@ -183,6 +251,7 @@ async function fetchFindings() {
       return;
     }
     state.findings = data.findings || [];
+    state.controls = data.controls || state.findings;
     state.meta = data.meta || {};
     renderTable();
     updateMetrics();
@@ -196,6 +265,34 @@ async function exemptSelected() {
   const checked = Array.from(document.querySelectorAll(".row-check:checked"));
   const testIds = checked.map((cb) => cb.dataset.testId);
   if (testIds.length === 0) return;
+
+  if (isEnableMode()) {
+    el("btn-exempt").disabled = true;
+    try {
+      const res = await fetch("/api/unexempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ test_ids: testIds }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showAlert(data.error || "Failed to enable selected controls.");
+        return;
+      }
+      const removedCount = (data.removed || []).length;
+      showAlert(
+        `Enabled ${removedCount} control(s); they will be included in future scans.` +
+          (data.not_found && data.not_found.length
+            ? ` (${data.not_found.length} were not currently exempted.)`
+            : ""),
+        "success"
+      );
+      await fetchFindings();
+    } catch (err) {
+      showAlert(`Could not reach the backend: ${err}`);
+    }
+    return;
+  }
 
   const reason = el("reason-input").value || "Accepted risk";
 
@@ -239,6 +336,15 @@ el("btn-refresh").addEventListener("click", () => {
   fetchSystemInfo();
 });
 
+el("view-filter").addEventListener("change", (e) => {
+  state.view = e.target.value || "unresolved";
+  el("chk-select-all").checked = false;
+  updateActionModeUI();
+  renderTable();
+  updateSelectionState();
+});
+
+updateActionModeUI();
 fetchSystemInfo();
 fetchFindings();
 

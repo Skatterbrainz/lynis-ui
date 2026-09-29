@@ -2,12 +2,16 @@
 
 _Web-based front-end for interacting with Lynis audit reports and custom profile configuration._
 
-A small local web app that shows your latest Lynis scan findings in a browser
-table. Check the boxes next to findings you've decided to accept as risk,
-click **Exempt Selected**, and it appends the matching `skip-test=` lines to
-`/etc/lynis/custom.prf` so those tests are excluded from future scans.
+A small local web app that shows your Lynis controls in a browser table with multiple views: **Unresolved** (default), **Remediated**, **Exempt controls**, and **All controls**. The **Test** column links each control ID to its online Lynis control reference. You can check unresolved findings and click **Exempt Selected** to append matching `skip-test=` lines to `/etc/lynis/custom.prf`, or switch to **Exempt controls** and click **Enable Selected** to remove exemptions in bulk.
+
+lynis-ui is NOT intended to be a replacement for [Lynis Enterprise](https://cisofy.com/lynis-enterprise/), nor should it be (refer to [Current Limitations](#current-limitations) below). It is intended for lightweight usage in non-critical environments, like personal labs, home networks, and only for quick review of security baselines and remediation. If you are looking for deeper control and more flexible capabilities, consider [Lynis Enterprise](https://cisofy.com/lynis-enterprise/).
 
 This project was built and tested on Linux Mint 22.3 with lynis 3.1.7.
+
+## What's New
+
+- Latest release: 1.1.0 (9/28/2026)
+- Full release history: [changelog.md](changelog.md)
 
 ## Requirements
 
@@ -104,19 +108,25 @@ sudo LYNIS_REPORT_PATH=/path/to/lynis-report.dat ./dist/Lynis-Findings-Dashboard
    `suggestion[]` / `warning[]` entries and reads scan metadata (hostname,
    Lynis version, hardening index, scan date).
 2. It also parses `/etc/lynis/custom.prf` to see which tests are already
-   exempted (`skip-test=TEST-ID` lines), so those rows show as *Exempted*
-   with a toggle switch instead of a checkbox.
+  exempted (`skip-test=TEST-ID` lines).
 3. Each finding is enriched with curated metadata (category, severity,
    impact, remediation, explanation) from `lynis_knowledge.json`. Any test ID
    not yet in that file still shows up, just with generic placeholder text —
    feel free to add entries for it.
-4. Checking rows and clicking **Exempt Selected** posts the chosen test IDs
-   (plus an optional free-text reason) to the backend, which appends a dated
-   comment and `skip-test=` line per test ID to `/etc/lynis/custom.prf`.
-5. Flipping an exempted row's toggle off calls `/api/unexempt`, which
-   comments out that `skip-test=` line (with a removal note, preserving
-   history) so the test runs again next scan.
-6. Re-running a Lynis scan (`sudo lynis audit system --cronjob`, or waiting
+4. The **View** selector filters controls by status:
+  - **Unresolved (default)**: active findings from the latest report
+  - **Remediated**: controls currently not reported as active findings
+  - **Exempt controls**: controls with active `skip-test=` exemptions
+  - **All controls**: combined catalog across all statuses
+5. In unresolved/all views, checking rows and clicking **Exempt Selected**
+  posts the chosen test IDs (plus an optional free-text reason) to the
+  backend, which appends a dated comment and `skip-test=` line per test ID to
+  `/etc/lynis/custom.prf`.
+6. In exempted view, selecting rows and clicking **Enable Selected** calls
+  `/api/unexempt` in bulk to remove those exemptions so controls are included
+  in future scans. In unresolved view, you can also un-exempt per row via the
+  existing status toggle.
+7. Re-running a Lynis scan (`sudo lynis audit system --cronjob`, or waiting
    for the weekly `lynis.timer` run) will skip all currently-exempted tests.
 
 ## Files
@@ -127,7 +137,7 @@ sudo LYNIS_REPORT_PATH=/path/to/lynis-report.dat ./dist/Lynis-Findings-Dashboard
 | `lynis_report_parser.py` | Parsing logic for report.dat and custom.prf (no Flask dependency) |
 | `lynis_knowledge.json` | Curated category/severity/impact/remediation/explanation per test ID |
 | `templates/index.html` | Bootstrap 5 (via CDN) page shell |
-| `static/app.js` | Fetches findings, renders the table, handles selection + exempt/unexempt requests |
+| `static/app.js` | Fetches controls/findings, renders status views, handles selection + exempt/unexempt requests |
 | `static/styles.css` | Layout/theme tweaks on top of Bootstrap |
 | `run.sh` | Installs Flask if missing, launches the app with sudo, opens the browser |
 | `build_appimage.sh` | Builds a PyInstaller onefile backend and packs it into an AppImage |

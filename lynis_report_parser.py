@@ -269,12 +269,18 @@ def build_findings_list(
     knowledge = knowledge or {}
 
     findings_out = []
+    unresolved_ids = set(parsed["findings"].keys())
+    known_ids = set(knowledge.keys())
+    exempted_ids = set(exemptions["full"]) | set(exemptions["partial"].keys())
+    all_control_ids = sorted(unresolved_ids | known_ids | exempted_ids)
+
     for test_id, entry in sorted(parsed["findings"].items()):
         info = knowledge.get(test_id, {})
         findings_out.append(
             {
                 "test_id": test_id,
                 "kind": entry["kind"],
+                "control_status": "unresolved",
                 "descriptions": entry["descriptions"],
                 "category": info.get("category", "Uncategorized"),
                 "severity": info.get("severity", "Unclassified"),
@@ -282,6 +288,36 @@ def build_findings_list(
                 "remediation": info.get("remediation", "See Lynis suggestion text above."),
                 "explanation": info.get("explanation", "Not yet documented."),
                 "exempted": test_id in exemptions["full"],
+                "partial_exemptions": sorted(exemptions["partial"].get(test_id, [])),
+            }
+        )
+
+    controls_out = []
+    findings_by_id = {f["test_id"]: f for f in findings_out}
+    for test_id in all_control_ids:
+        unresolved_entry = findings_by_id.get(test_id)
+        if unresolved_entry:
+            controls_out.append(unresolved_entry)
+            continue
+
+        info = knowledge.get(test_id, {})
+        is_exempted = test_id in exemptions["full"]
+        controls_out.append(
+            {
+                "test_id": test_id,
+                "kind": "exempted" if is_exempted else "remediated",
+                "control_status": "exempted" if is_exempted else "remediated",
+                "descriptions": [
+                    "Not reported as an active finding in the latest scan."
+                    if not is_exempted
+                    else "This control is exempted in custom.prf and may not be assessed in scans."
+                ],
+                "category": info.get("category", "Uncategorized"),
+                "severity": info.get("severity", "Unclassified"),
+                "impact": info.get("impact", "Unknown"),
+                "remediation": info.get("remediation", "No remediation needed based on current scan output."),
+                "explanation": info.get("explanation", "Not yet documented."),
+                "exempted": is_exempted,
                 "partial_exemptions": sorted(exemptions["partial"].get(test_id, [])),
             }
         )
@@ -300,4 +336,5 @@ def build_findings_list(
             "custom_profile_exists": os.path.isfile(custom_profile_path),
         },
         "findings": findings_out,
+        "controls": controls_out,
     }
